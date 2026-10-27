@@ -20,6 +20,10 @@ See `godiff -h` for all the available command line options
 * Supports UTF8 file.
 * Show differences within a line
 * Options for ignore case, white spaces compare, blank lines etc.
+* Interactive directory report with file navigation, summary statistics, search,
+  status and directory filters.
+* Collapsible file diffs, light/dark themes and CSV summary export.
+* The HTML report is self-contained and works offline.
 
 ##Description
 

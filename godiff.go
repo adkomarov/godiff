@@ -169,36 +169,75 @@ const HTML_HEADER = `<!doctype html><html><head>
 <meta http-equiv="content-type" content="text/html;charset=utf-8">`
 
 const HTML_CSS = `<style type="text/css">
-.tab {border-color:#808080; border-style:solid; border-width:1px 1px 1px 1px; border-collapse:collapse;}
-.tth {border-color:#808080; border-style:solid; border-width:1px 1px 1px 1px; border-collapse:collapse; padding:4px; vertical-align:top; text-align:left; background-color:#E0E0E0;}
-.ttd {border-color:#808080; border-style:solid; border-width:1px 1px 1px 1px; border-collapse:collapse; padding:4px; vertical-align:top; text-align:left;}
-.hdr {color:black; font-size:85%;}
-.inf {color:#C08000; font-size:85%;}
-.err {color:red; font-size:85%; font-weight:bold; margin:0;}
-.msg {color:#508050; font-size:85%; font-weight:bold; margin:0;}
-.lno {color:#C08000; background-color:white; font-style:italic; margin:0;}
-.nop {color:black; font-size:75%; font-family:monospace; white-space:pre; margin:0; display:block;}
-.upd {color:black; font-size:75%; font-family:monospace; white-space:pre; margin:0; background-color:#CFCFFF; display:block;}
-.emp {color:black; font-size:75%; font-family:monospace; white-space:pre; margin:0; background-color:#E0E0E0; display:block;}
-.add {color:black; font-size:75%; font-family:monospace; white-space:pre; margin:0; background-color:#CFFFCF; display:block;}
-.del {color:black; font-size:75%; font-family:monospace; white-space:pre; margin:0; background-color:#FFCFCF; display:block;}
-.chg {color:#C00080; background-color:#AFAFDF;}
+:root{color-scheme:light;--bg:#f4f6fb;--panel:#fff;--panel-2:#f8faff;--text:#182230;--muted:#657287;--border:#dce3ed;--accent:#315fce;--accent-soft:#eaf0ff;--green:#18794e;--green-bg:#dff7e8;--red:#b4233c;--red-bg:#ffe4e8;--amber:#946200;--amber-bg:#fff4cc;--violet:#8b176b;--violet-bg:#f5c8e9;--shadow:0 4px 18px rgba(25,42,70,.06)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select{font:inherit}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 28%,transparent);outline-offset:1px}
+body.dark{color-scheme:dark;--bg:#111827;--panel:#1b2535;--panel-2:#202c3e;--text:#e6edf7;--muted:#9eacc0;--border:#344154;--accent:#9bb5ff;--accent-soft:#293a5d;--green:#7ee2a8;--green-bg:#194a31;--red:#ff9aa8;--red-bg:#5a252d;--amber:#f5ce6a;--amber-bg:#4b3b1d;--violet:#ffc0eb;--violet-bg:#6b315c;--shadow:0 4px 18px rgba(0,0,0,.18)}
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 22px;background:var(--panel);background:color-mix(in srgb,var(--panel) 94%,transparent);border-bottom:1px solid var(--border);box-shadow:var(--shadow);backdrop-filter:blur(12px)}.brand{font-size:17px;font-weight:760}.subtitle{max-width:min(900px,70vw);margin-top:3px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.actions,.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn,select,input{min-height:38px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--text)}.btn{cursor:pointer;white-space:nowrap}.btn:hover{border-color:var(--accent);color:var(--accent)}
+.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;max-width:1800px;margin:18px auto;padding:0 18px}.sidebar{position:sticky;top:83px;align-self:start;max-height:calc(100vh - 101px);overflow:auto;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}.side-title{display:flex;justify-content:space-between;gap:8px;margin:0 0 10px;font-weight:700}.side-count{color:var(--muted);font-weight:600}.file-list{display:grid;gap:4px}.file-link{display:grid;grid-template-columns:8px minmax(0,1fr);gap:8px;width:100%;padding:8px 9px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.file-link:hover,.file-link.active{background:var(--accent-soft);color:var(--accent)}.file-dot{width:8px;height:8px;margin-top:5px;border-radius:50%;background:var(--accent)}.file-dot.added{background:var(--green)}.file-dot.deleted,.file-dot.error{background:var(--red)}.file-dot.identical{background:var(--muted)}.file-name{display:block;overflow-wrap:anywhere;font-size:12px}.file-link small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+main{min-width:0}.intro{margin:1px 0 13px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(5,minmax(115px,1fr));gap:10px;margin-bottom:16px}.stat{padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.stat-label{color:var(--muted);font-size:12px}.stat-value{margin-top:3px;font-size:25px;font-weight:760}.toolbar{padding:12px;margin-bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.toolbar select{max-width:200px}.toolbar .btn{padding-inline:9px}.searchbox{flex:1 1 200px;min-width:190px}.result-count{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
+.diff-card{margin:0 0 14px;overflow:hidden;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow);scroll-margin-top:84px}.card-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--panel-2);color:var(--text);text-align:left;cursor:pointer}.card-head:hover .card-path{color:var(--accent)}.card-chevron{flex:0 0 auto;color:var(--muted);transition:transform .15s}.diff-card.collapsed .card-chevron{transform:rotate(-90deg)}.card-path{min-width:0;overflow-wrap:anywhere;font:650 12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.badge{flex:0 0 auto;margin-left:auto;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}.badge.added{background:var(--green-bg);color:var(--green)}.badge.deleted,.badge.error{background:var(--red-bg);color:var(--red)}.badge.technical,.badge.identical{background:var(--amber-bg);color:var(--amber)}.diff-card.collapsed .tab{display:none}
+.tab{width:100%;table-layout:fixed;border:0;border-collapse:collapse}.tth,.ttd{width:50%;min-width:0;padding:10px;border:1px solid var(--border);vertical-align:top;text-align:left;overflow-wrap:anywhere}.tth{background:var(--accent-soft)}.hdr{color:var(--text);font:600 12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.inf{color:var(--muted);font-size:11px}.err{color:var(--red);font-size:12px;font-weight:700}.msg{color:var(--green);font-size:12px;font-weight:700}.nop,.upd,.emp,.add,.del{display:block;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.nop{color:var(--text)}.upd{color:var(--text);background:#d9e2ff}.emp{color:var(--text);background:#e4e7ec}.add{color:#123d21;background:#c9f4d2}.del{color:#641f28;background:#ffd2d6}.chg{color:var(--violet);background:var(--violet-bg);font-weight:750}.lno{color:var(--amber);background:transparent;font-style:normal;margin-right:5px}.dark .upd{background:#293b60;color:#f2f5ff}.dark .emp{background:#374151;color:#f3f4f6}.dark .add{background:#194a31;color:#dcfce7}.dark .del{background:#5a252d;color:#ffe4e6}.dark .tth{background:#263656}
+.empty{display:none;padding:30px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--border);border-radius:12px}.match{outline:3px solid #eab308;outline-offset:-3px}.footnote{margin:8px 2px 24px;color:var(--muted);font-size:12px}footer.footnote{max-width:1764px;margin:8px auto 24px;padding:0 18px}.legend{margin-top:10px}.legend summary{cursor:pointer;color:var(--accent)}.noscript{margin:16px;padding:12px;background:var(--red-bg);color:var(--red);border-radius:10px}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:230px}.file-list{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(3,minmax(100px,1fr))}}@media(max-width:680px){.topbar{padding:11px 12px;align-items:flex-start;flex-direction:column}.subtitle{max-width:94vw}.layout{padding:0 9px;margin:10px auto}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.file-list{grid-template-columns:1fr}.tth,.ttd{padding:6px}.nop,.upd,.emp,.add,.del{font-size:11px}.result-count{width:100%;margin-left:0}.card-head{align-items:flex-start}.badge{margin-left:0}}
 </style>`
 
-const HTML_LEGEND = `<br><b>Legend:</b><br><table class="tab">
-<tr><td class="tth"><span class="hdr">filename 1</span></td><td class="tth"><span class="hdr">filename 2</span></td></tr>
-<tr><td class="ttd">
-<span class="del"><span class="lno">1 </span>line deleted</span>
-<span class="nop"><span class="lno">2 </span>no change</span>
-<span class="upd"><span class="lno">3 </span>line modified</span>
-</td>
-<td class="ttd">
-<span class="add"><span class="lno">1 </span>line added</span>
-<span class="nop"><span class="lno">2 </span>no change</span>
-<span class="upd"><span class="lno">3 </span><span class="chg">L</span>ine <span class="chg">M</span>odified</span>
-</td></tr>
-</table>
-`
+const HTML_APP_OPEN = `<header class="topbar"><div><div class="brand">Отчёт сравнения каталогов</div><div class="subtitle" id="source-title"></div></div><div class="actions"><button class="btn" id="collapse-all" type="button">Свернуть всё</button><button class="btn" id="theme-toggle" type="button">Тёмная тема</button><button class="btn" id="export-csv" type="button">Экспорт CSV</button></div></header>
+<div class="layout"><aside class="sidebar"><div class="side-title"><span>Файлы отчёта</span><span class="side-count" id="sidebar-count">0</span></div><div class="file-list" id="file-list"></div></aside><main><p class="intro">Все изменения каталогов в одном отчёте. Выберите файл или используйте поиск и фильтры.</p>
+<section class="stats" aria-label="Статистика отчёта"><div class="stat"><div class="stat-label">Файлов в отчёте</div><div class="stat-value" id="stat-total">0</div></div><div class="stat"><div class="stat-label">Изменено файлов</div><div class="stat-value" id="stat-modified">0</div></div><div class="stat"><div class="stat-label">Добавлено блоков</div><div class="stat-value" id="stat-added">0</div></div><div class="stat"><div class="stat-label">Удалено блоков</div><div class="stat-value" id="stat-deleted">0</div></div><div class="stat"><div class="stat-label">Изменённых фрагментов</div><div class="stat-value" id="stat-fragments">0</div></div></section>
+<section class="toolbar" aria-label="Поиск и фильтры"><input class="searchbox" id="search" type="search" placeholder="Поиск по пути и изменённому тексту…" aria-label="Поиск по отчёту"><select id="status-filter" aria-label="Тип изменения"><option value="all">Все изменения</option><option value="modified">Изменённые файлы</option><option value="added">Добавленные файлы</option><option value="deleted">Удалённые файлы</option><option value="content">Содержательные изменения</option><option value="technical">Только технические</option><option value="error">Ошибки</option><option value="identical">Одинаковые файлы</option></select><select id="folder-filter" aria-label="Каталог"><option value="all">Все каталоги</option></select><button class="btn" id="prev-match" type="button">↑ Предыдущее</button><button class="btn" id="next-match" type="button">↓ Следующее</button><span class="result-count" id="result-count" aria-live="polite"></span></section>
+<div id="diff-container">`
+
+const HTML_APP_CLOSE = `</div><div class="empty" id="empty-state">По заданным условиям ничего не найдено.</div><div class="footnote">Исходный контекст diff и посимвольная подсветка сохранены. Технические изменения определяются эвристически.</div></main></div><noscript><div class="noscript">JavaScript отключён. Diff доступен, но для навигации и фильтров нужен JavaScript.</div></noscript>`
+
+const HTML_LEGEND = `<details class="legend"><summary>Легенда подсветки</summary><p><span class="del">Удалённая строка</span><span class="add">Добавленная строка</span><span class="upd">Изменённый <span class="chg">фрагмент</span></span></p></details>`
+
+const HTML_SCRIPT = `<script>
+(function(){
+  'use strict';
+  var container=document.getElementById('diff-container');
+  var tables=Array.prototype.filter.call(container.children,function(node){return node.tagName==='TABLE'&&node.classList.contains('tab');});
+  Array.prototype.slice.call(container.children).forEach(function(node){if(node.tagName==='BR'){node.remove();}});
+  var leftRoot=(document.body.getAttribute('data-left')||'').replace(/\\/g,'/').replace(/\/$/,'');
+  var rightRoot=(document.body.getAttribute('data-right')||'').replace(/\\/g,'/').replace(/\/$/,'');
+  var labels={modified:'Изменён',added:'Добавлен',deleted:'Удалён',error:'Ошибка',identical:'Без изменений'};
+  var cards=[], list=document.getElementById('file-list');
+  var clean=function(value){return (value||'').replace(/\s+/g,' ').trim();};
+  var relative=function(value,root){var path=(value||'').replace(/\\/g,'/');if(root&&path.indexOf(root+'/')===0){return path.slice(root.length+1);}return path||'Файл без имени';};
+  var changedLines=function(table){var lines=[];Array.prototype.forEach.call(table.querySelectorAll('.upd,.add,.del'),function(node){var copy=node.cloneNode(true);Array.prototype.forEach.call(copy.querySelectorAll('.lno'),function(n){n.remove();});copy.textContent.split(/\r?\n/).forEach(function(line){line=clean(line);if(line){lines.push(line);}});});return lines;};
+  var getStatus=function(table){var cells=table.querySelectorAll('.ttd');var first=cells[0]?cells[0].textContent:'';var second=cells[1]?cells[1].textContent:'';var errors=table.querySelectorAll('.err');var messages=table.querySelectorAll('.msg');if(/File does not exist/i.test(first)){return 'added';}if(/File does not exist/i.test(second)){return 'deleted';}if(errors.length){return 'error';}if(messages.length&&/Files are the same/i.test(table.textContent)){return 'identical';}return 'modified';};
+  tables.forEach(function(table,index){
+    var headers=table.querySelectorAll('.hdr');var left=headers[0]?clean(headers[0].textContent):'';var right=headers[1]?clean(headers[1].textContent):left;
+    var leftPath=relative(left,leftRoot),rightPath=relative(right,rightRoot);var path=leftPath!=='Файл без имени'?leftPath:rightPath;
+    var status=getStatus(table),lines=changedLines(table);var technical=lines.length>0&&lines.every(function(line){return /Page generated automatically|\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u0430 \u0432 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435/i.test(line);});
+    if(status==='added'||status==='deleted'){var contentCells=table.querySelectorAll('.ttd');var contentCell=contentCells[status==='added'?1:0];if(contentCell){Array.prototype.forEach.call(contentCell.querySelectorAll('.nop'),function(node){node.classList.remove('nop');node.classList.add(status==='added'?'add':'del');});}}
+    var normalized=path.replace(/\\/g,'/'),slash=normalized.lastIndexOf('/');var folder=slash<0?'Корень':normalized.slice(0,slash);
+    var added=table.querySelectorAll('.add').length,deleted=table.querySelectorAll('.del').length,updated=table.querySelectorAll('.upd').length,fragments=table.querySelectorAll('.chg').length;
+    var card=document.createElement('section');card.className='diff-card';card.id='file-'+index;card.dataset.path=path;card.dataset.folder=folder;card.dataset.status=status;card.dataset.technical=technical?'1':'0';card.dataset.added=String(added);card.dataset.deleted=String(deleted);card.dataset.updated=String(updated);card.dataset.fragments=String(fragments);card.dataset.search=(path+' '+table.textContent).toLocaleLowerCase();
+    var head=document.createElement('button');head.type='button';head.className='card-head';head.setAttribute('aria-expanded','true');head.innerHTML='<span class="card-chevron" aria-hidden="true">▾</span>';
+    var pathNode=document.createElement('span');pathNode.className='card-path';pathNode.textContent=path;head.appendChild(pathNode);
+    var badge=document.createElement('span');badge.className='badge '+(technical?'technical':status);badge.textContent=technical?'Техническое':labels[status];head.appendChild(badge);
+    head.addEventListener('click',function(){var collapsed=card.classList.toggle('collapsed');head.setAttribute('aria-expanded',collapsed?'false':'true');});
+    card.appendChild(head);card.appendChild(table);container.appendChild(card);cards.push(card);
+    var link=document.createElement('button');link.type='button';link.className='file-link';link.dataset.target=card.id;var dot=document.createElement('span');dot.className='file-dot '+status;dot.setAttribute('aria-hidden','true');var body=document.createElement('span');var name=document.createElement('span');name.className='file-name';name.textContent=path;var meta=document.createElement('small');meta.textContent=(technical?'Техническое':labels[status])+' · блоков: '+(added+deleted+updated);body.appendChild(name);body.appendChild(meta);link.appendChild(dot);link.appendChild(body);
+    link.addEventListener('click',function(){card.classList.remove('collapsed');head.setAttribute('aria-expanded','true');card.scrollIntoView({behavior:'smooth',block:'start'});setActive(card);});list.appendChild(link);
+  });
+  function setActive(card){Array.prototype.forEach.call(list.children,function(link){link.classList.toggle('active',link.dataset.target===card.id);});}
+  var folders=[];cards.forEach(function(card){if(folders.indexOf(card.dataset.folder)<0){folders.push(card.dataset.folder);}});folders.sort(function(a,b){return a.localeCompare(b);});var folderFilter=document.getElementById('folder-filter');folders.forEach(function(folder){var option=document.createElement('option');option.value=folder;option.textContent=folder;folderFilter.appendChild(option);});
+  var sum=function(key){return cards.reduce(function(total,card){return total+Number(card.dataset[key]||0);},0);};
+  document.getElementById('stat-total').textContent=String(cards.length);document.getElementById('stat-modified').textContent=String(cards.filter(function(card){return card.dataset.status==='modified';}).length);document.getElementById('stat-added').textContent=String(sum('added'));document.getElementById('stat-deleted').textContent=String(sum('deleted'));document.getElementById('stat-fragments').textContent=String(sum('fragments'));document.getElementById('sidebar-count').textContent=String(cards.length);
+  document.getElementById('source-title').textContent=(document.body.getAttribute('data-left')||'')+'  ↔  '+(document.body.getAttribute('data-right')||'');
+  var search=document.getElementById('search'),statusFilter=document.getElementById('status-filter'),visible=[],current=-1;
+  function applyFilters(){var query=clean(search.value).toLocaleLowerCase(),status=statusFilter.value,folder=folderFilter.value;visible=[];cards.forEach(function(card,index){var matchesQuery=!query||card.dataset.search.indexOf(query)>=0;var matchesFolder=folder==='all'||card.dataset.folder===folder;var matchesStatus=status==='all'||card.dataset.status===status||(status==='technical'&&card.dataset.technical==='1')||(status==='content'&&card.dataset.status==='modified'&&card.dataset.technical!=='1');var show=matchesQuery&&matchesFolder&&matchesStatus;card.hidden=!show;if(list.children[index]){list.children[index].hidden=!show;}if(show){visible.push(card);}});current=-1;document.getElementById('result-count').textContent='Показано '+visible.length+' из '+cards.length;document.getElementById('empty-state').style.display=visible.length?'none':'block';}
+  search.addEventListener('input',applyFilters);statusFilter.addEventListener('change',applyFilters);folderFilter.addEventListener('change',applyFilters);
+  function move(direction){if(!visible.length){return;}if(current>=0){visible[current].classList.remove('match');}current=(current+direction+visible.length)%visible.length;var card=visible[current];card.classList.remove('collapsed');card.querySelector('.card-head').setAttribute('aria-expanded','true');card.classList.add('match');card.scrollIntoView({behavior:'smooth',block:'start'});setActive(card);}
+  document.getElementById('prev-match').addEventListener('click',function(){move(-1);});document.getElementById('next-match').addEventListener('click',function(){move(1);});
+  var themeButton=document.getElementById('theme-toggle');themeButton.addEventListener('click',function(){document.body.classList.toggle('dark');themeButton.textContent=document.body.classList.contains('dark')?'Светлая тема':'Тёмная тема';});
+  var collapseButton=document.getElementById('collapse-all'),allCollapsed=false;collapseButton.addEventListener('click',function(){allCollapsed=!allCollapsed;cards.forEach(function(card){card.classList.toggle('collapsed',allCollapsed);card.querySelector('.card-head').setAttribute('aria-expanded',allCollapsed?'false':'true');});collapseButton.textContent=allCollapsed?'Развернуть всё':'Свернуть всё';});
+  document.getElementById('export-csv').addEventListener('click',function(){var rows=[['Файл','Каталог','Статус','Только техническое','Добавлено блоков','Удалено блоков','Изменено блоков','Изменено фрагментов']];cards.forEach(function(card){rows.push([card.dataset.path,card.dataset.folder,card.dataset.status,card.dataset.technical==='1'?'да':'нет',card.dataset.added,card.dataset.deleted,card.dataset.updated,card.dataset.fragments]);});var csv='\ufeff'+rows.map(function(row){return row.map(function(value){return '"'+String(value).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='godiff-report.csv';anchor.click();setTimeout(function(){URL.revokeObjectURL(url);},0);});
+  document.addEventListener('keydown',function(event){if(event.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){event.preventDefault();search.focus();}if(event.altKey&&event.key==='ArrowDown'){event.preventDefault();move(1);}if(event.altKey&&event.key==='ArrowUp'){event.preventDefault();move(-1);}});
+  applyFilters();
+})();
+</script>`
 
 // command line arguments
 var (
@@ -377,8 +416,8 @@ func main() {
 		out.WriteString(HTML_HEADER)
 		fmt.Fprintf(out, "<title>Compare %s vs %s</title>\n", html.EscapeString(file1), html.EscapeString(file2))
 		out.WriteString(HTML_CSS)
-		out.WriteString("</head><body>\n")
-		fmt.Fprintf(out, "<p>Compare <strong>%s</strong> vs <strong>%s</strong></p>\n", html.EscapeString(file1), html.EscapeString(file2))
+		fmt.Fprintf(out, "</head><body data-left=\"%s\" data-right=\"%s\">\n", html.EscapeString(file1), html.EscapeString(file2))
+		out.WriteString(HTML_APP_OPEN)
 	}
 
 	switch {
@@ -392,8 +431,11 @@ func main() {
 	}
 
 	if !flag_output_as_text {
-		fmt.Fprintf(out, "Generated on %s<br>", time.Now().Format(time.RFC1123))
+		out.WriteString(HTML_APP_CLOSE)
+		fmt.Fprintf(out, "<footer class=\"footnote\">Сформировано: %s", time.Now().Format(time.RFC1123))
 		out.WriteString(HTML_LEGEND)
+		out.WriteString("</footer>")
+		out.WriteString(HTML_SCRIPT)
 		out.WriteString("</body></html>\n")
 	}
 }
