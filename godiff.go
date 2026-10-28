@@ -96,6 +96,7 @@ const (
 	MSG_FILE_DIFFERS     = "File differs"
 	MSG_BIN_FILE_DIFFERS = "File differs. This is a binary file"
 	MSG_FILE_IDENTICAL   = "Files are the same"
+	MSG_EXTENSION_CHANGED = "File extension changed"
 	MSG_FILE_TOO_BIG     = "File too big"
 	MSG_THIS_IS_DIR      = "This is a directory"
 	MSG_THIS_IS_FILE     = "This is a file"
@@ -117,8 +118,26 @@ type OutputFormat struct {
 	buf1, buf2           bytes.Buffer
 	name1, name2         string
 	fileinfo1, fileinfo2 os.FileInfo
+	metrics1, metrics2   FileMetrics
+	summary              DiffSummary
 	header_printed       bool
 	lineno_width         int
+}
+
+type FileMetrics struct {
+	valid    bool
+	size     int64
+	modified string
+	encoding string
+	lines    int
+	blocks   int
+	chars    int
+}
+
+type DiffSummary struct {
+	added_lines   int
+	deleted_lines int
+	changed_chars int
 }
 
 const (
@@ -170,21 +189,21 @@ const HTML_HEADER = `<!doctype html><html><head>
 
 const HTML_CSS = `<style type="text/css">
 :root{color-scheme:light;--bg:#f4f6fb;--panel:#fff;--panel-2:#f8faff;--text:#182230;--muted:#657287;--border:#dce3ed;--accent:#315fce;--accent-soft:#eaf0ff;--green:#18794e;--green-bg:#dff7e8;--red:#b4233c;--red-bg:#ffe4e8;--amber:#946200;--amber-bg:#fff4cc;--violet:#8b176b;--violet-bg:#f5c8e9;--shadow:0 4px 18px rgba(25,42,70,.06)}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select{font:inherit}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 28%,transparent);outline-offset:1px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}button,input,select{font:inherit}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 28%,transparent);outline-offset:1px}
 body.dark{color-scheme:dark;--bg:#111827;--panel:#1b2535;--panel-2:#202c3e;--text:#e6edf7;--muted:#9eacc0;--border:#344154;--accent:#9bb5ff;--accent-soft:#293a5d;--green:#7ee2a8;--green-bg:#194a31;--red:#ff9aa8;--red-bg:#5a252d;--amber:#f5ce6a;--amber-bg:#4b3b1d;--violet:#ffc0eb;--violet-bg:#6b315c;--shadow:0 4px 18px rgba(0,0,0,.18)}
 .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 22px;background:var(--panel);background:color-mix(in srgb,var(--panel) 94%,transparent);border-bottom:1px solid var(--border);box-shadow:var(--shadow);backdrop-filter:blur(12px)}.brand{font-size:17px;font-weight:760}.subtitle{max-width:min(900px,70vw);margin-top:3px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.actions,.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.btn,select,input{min-height:38px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel);color:var(--text)}.btn{cursor:pointer;white-space:nowrap}.btn:hover{border-color:var(--accent);color:var(--accent)}
 .layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;max-width:1800px;margin:18px auto;padding:0 18px}.sidebar{position:sticky;top:83px;align-self:start;max-height:calc(100vh - 101px);overflow:auto;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}.side-title{display:flex;justify-content:space-between;gap:8px;margin:0 0 10px;font-weight:700}.side-count{color:var(--muted);font-weight:600}.file-list{display:grid;gap:4px}.file-link{display:grid;grid-template-columns:8px minmax(0,1fr);gap:8px;width:100%;padding:8px 9px;border:0;border-radius:8px;background:transparent;color:var(--text);text-align:left;cursor:pointer}.file-link:hover,.file-link.active{background:var(--accent-soft);color:var(--accent)}.file-dot{width:8px;height:8px;margin-top:5px;border-radius:50%;background:var(--accent)}.file-dot.added{background:var(--green)}.file-dot.deleted,.file-dot.error{background:var(--red)}.file-dot.identical{background:var(--muted)}.file-name{display:block;overflow-wrap:anywhere;font-size:12px}.file-link small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
-main{min-width:0}.intro{margin:1px 0 13px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(5,minmax(115px,1fr));gap:10px;margin-bottom:16px}.stat{padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.stat-label{color:var(--muted);font-size:12px}.stat-value{margin-top:3px;font-size:25px;font-weight:760}.toolbar{padding:12px;margin-bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.toolbar select{max-width:200px}.toolbar .btn{padding-inline:9px}.searchbox{flex:1 1 200px;min-width:190px}.result-count{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
-.diff-card{margin:0 0 14px;overflow:hidden;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow);scroll-margin-top:84px}.card-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--panel-2);color:var(--text);text-align:left;cursor:pointer}.card-head:hover .card-path{color:var(--accent)}.card-chevron{flex:0 0 auto;color:var(--muted);transition:transform .15s}.diff-card.collapsed .card-chevron{transform:rotate(-90deg)}.card-path{min-width:0;overflow-wrap:anywhere;font:650 12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.badge{flex:0 0 auto;margin-left:auto;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}.badge.added{background:var(--green-bg);color:var(--green)}.badge.deleted,.badge.error{background:var(--red-bg);color:var(--red)}.badge.technical,.badge.identical{background:var(--amber-bg);color:var(--amber)}.diff-card.collapsed .tab{display:none}
+main{min-width:0}.intro{margin:1px 0 13px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(4,minmax(115px,1fr));gap:10px;margin-bottom:16px}.stat{padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.stat-label{color:var(--muted);font-size:12px}.stat-value{margin-top:3px;font-size:25px;font-weight:760}.stat-added{color:var(--green)}.stat-deleted{color:var(--red)}.toolbar{padding:12px;margin-bottom:14px;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow)}.toolbar select{max-width:200px}.toolbar .btn{padding-inline:9px}.searchbox{flex:1 1 200px;min-width:190px}.result-count{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
+.diff-card{margin:0 0 14px;overflow:hidden;background:var(--panel);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow);scroll-margin-top:84px}.card-head{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--panel-2);color:var(--text);text-align:left;cursor:pointer}.card-head:hover .card-path{color:var(--accent)}.card-chevron{flex:0 0 auto;color:var(--muted);transition:transform .15s}.diff-card.collapsed .card-chevron{transform:rotate(-90deg)}.card-path{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font:650 12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.change-summary{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--muted);font:650 11px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace}.change-summary .plus{color:var(--green)}.change-summary .minus{color:var(--red)}.rename-note{padding:3px 7px;border-radius:999px;background:var(--violet-bg);color:var(--violet);font-size:11px;font-weight:700}.badge{flex:0 0 auto;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}.badge.added{background:var(--green-bg);color:var(--green)}.badge.deleted,.badge.error{background:var(--red-bg);color:var(--red)}.badge.technical,.badge.identical{background:var(--amber-bg);color:var(--amber)}.file-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid var(--border);background:var(--panel)}.file-metric-side{display:flex;gap:7px 14px;align-items:center;flex-wrap:wrap;min-width:0;padding:8px 10px;color:var(--muted);font-size:11px}.file-metric-side:first-child{border-right:1px solid var(--border)}.file-metric-side strong{color:var(--text)}.size-delta.positive{color:var(--green)}.size-delta.negative{color:var(--red)}.diff-card.collapsed .tab,.diff-card.collapsed .file-metrics{display:none}
 .tab{width:100%;table-layout:fixed;border:0;border-collapse:collapse}.tth,.ttd{width:50%;min-width:0;padding:10px;border:1px solid var(--border);vertical-align:top;text-align:left;overflow-wrap:anywhere}.tth{background:var(--accent-soft)}.hdr{color:var(--text);font:600 12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.inf{color:var(--muted);font-size:11px}.err{color:var(--red);font-size:12px;font-weight:700}.msg{color:var(--green);font-size:12px;font-weight:700}.nop,.upd,.emp,.add,.del{display:block;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.nop{color:var(--text)}.upd{color:var(--text);background:#d9e2ff}.emp{color:var(--text);background:#e4e7ec}.add{color:#123d21;background:#c9f4d2}.del{color:#641f28;background:#ffd2d6}.chg{color:var(--violet);background:var(--violet-bg);font-weight:750}.lno{color:var(--amber);background:transparent;font-style:normal;margin-right:5px}.dark .upd{background:#293b60;color:#f2f5ff}.dark .emp{background:#374151;color:#f3f4f6}.dark .add{background:#194a31;color:#dcfce7}.dark .del{background:#5a252d;color:#ffe4e6}.dark .tth{background:#263656}
 .empty{display:none;padding:30px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--border);border-radius:12px}.match{outline:3px solid #eab308;outline-offset:-3px}.footnote{margin:8px 2px 24px;color:var(--muted);font-size:12px}footer.footnote{max-width:1764px;margin:8px auto 24px;padding:0 18px}.legend{margin-top:10px}.legend summary{cursor:pointer;color:var(--accent)}.noscript{margin:16px;padding:12px;background:var(--red-bg);color:var(--red);border-radius:10px}
-@media(max-width:1050px){.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:230px}.file-list{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(3,minmax(100px,1fr))}}@media(max-width:680px){.topbar{padding:11px 12px;align-items:flex-start;flex-direction:column}.subtitle{max-width:94vw}.layout{padding:0 9px;margin:10px auto}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.file-list{grid-template-columns:1fr}.tth,.ttd{padding:6px}.nop,.upd,.emp,.add,.del{font-size:11px}.result-count{width:100%;margin-left:0}.card-head{align-items:flex-start}.badge{margin-left:0}}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:230px}.file-list{grid-template-columns:repeat(2,minmax(0,1fr))}.stats{grid-template-columns:repeat(3,minmax(100px,1fr))}}@media(max-width:680px){.topbar{padding:11px 12px;align-items:flex-start;flex-direction:column}.subtitle{max-width:94vw}.layout{padding:0 9px;margin:10px auto}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.file-list{grid-template-columns:1fr}.tth,.ttd{padding:6px}.nop,.upd,.emp,.add,.del{font-size:11px}.result-count{width:100%;margin-left:0}.card-head{align-items:flex-start;flex-wrap:wrap}.change-summary{width:100%;padding-left:18px}.file-metric-side{align-items:flex-start;flex-direction:column;gap:3px}.badge{margin-left:0}}
 </style>`
 
 const HTML_APP_OPEN = `<header class="topbar"><div><div class="brand">Отчёт сравнения каталогов</div><div class="subtitle" id="source-title"></div></div><div class="actions"><button class="btn" id="collapse-all" type="button">Свернуть всё</button><button class="btn" id="theme-toggle" type="button">Тёмная тема</button><button class="btn" id="export-csv" type="button">Экспорт CSV</button></div></header>
 <div class="layout"><aside class="sidebar"><div class="side-title"><span>Файлы отчёта</span><span class="side-count" id="sidebar-count">0</span></div><div class="file-list" id="file-list"></div></aside><main><p class="intro">Все изменения каталогов в одном отчёте. Выберите файл или используйте поиск и фильтры.</p>
-<section class="stats" aria-label="Статистика отчёта"><div class="stat"><div class="stat-label">Файлов в отчёте</div><div class="stat-value" id="stat-total">0</div></div><div class="stat"><div class="stat-label">Изменено файлов</div><div class="stat-value" id="stat-modified">0</div></div><div class="stat"><div class="stat-label">Добавлено блоков</div><div class="stat-value" id="stat-added">0</div></div><div class="stat"><div class="stat-label">Удалено блоков</div><div class="stat-value" id="stat-deleted">0</div></div><div class="stat"><div class="stat-label">Изменённых фрагментов</div><div class="stat-value" id="stat-fragments">0</div></div></section>
-<section class="toolbar" aria-label="Поиск и фильтры"><input class="searchbox" id="search" type="search" placeholder="Поиск по пути и изменённому тексту…" aria-label="Поиск по отчёту"><select id="status-filter" aria-label="Тип изменения"><option value="all">Все изменения</option><option value="modified">Изменённые файлы</option><option value="added">Добавленные файлы</option><option value="deleted">Удалённые файлы</option><option value="content">Содержательные изменения</option><option value="technical">Только технические</option><option value="error">Ошибки</option><option value="identical">Одинаковые файлы</option></select><select id="folder-filter" aria-label="Каталог"><option value="all">Все каталоги</option></select><button class="btn" id="prev-match" type="button">↑ Предыдущее</button><button class="btn" id="next-match" type="button">↓ Следующее</button><span class="result-count" id="result-count" aria-live="polite"></span></section>
+<section class="stats" aria-label="Статистика отчёта"><div class="stat"><div class="stat-label">Файлов в отчёте</div><div class="stat-value" id="stat-total">0</div></div><div class="stat"><div class="stat-label">Изменено файлов</div><div class="stat-value" id="stat-modified">0</div></div><div class="stat"><div class="stat-label">Строк добавлено / удалено</div><div class="stat-value"><span class="stat-added">+<span id="stat-added">0</span></span> / <span class="stat-deleted">−<span id="stat-deleted">0</span></span></div></div><div class="stat"><div class="stat-label">Изменённых символов</div><div class="stat-value" id="stat-fragments">0</div></div></section>
+<section class="toolbar" aria-label="Поиск и фильтры"><input class="searchbox" id="search" type="search" placeholder="Поиск по пути и изменённому тексту…" aria-label="Поиск по отчёту"><select id="status-filter" aria-label="Тип изменения"><option value="all">Все изменения</option><option value="modified">Изменённые файлы</option><option value="added">Добавленные файлы</option><option value="deleted">Удалённые файлы</option><option value="content">Содержательные изменения</option><option value="technical">Только технические</option><option value="error">Ошибки</option><option value="identical">Одинаковые файлы</option></select><select id="folder-filter" aria-label="Каталог"><option value="all">Все каталоги</option></select><button class="btn" id="clear-filters" type="button" hidden>Сбросить</button><button class="btn" id="prev-match" type="button">↑ Предыдущее</button><button class="btn" id="next-match" type="button">↓ Следующее</button><span class="result-count" id="result-count" aria-live="polite"></span></section>
 <div id="diff-container">`
 
 const HTML_APP_CLOSE = `</div><div class="empty" id="empty-state">По заданным условиям ничего не найдено.</div><div class="footnote">Исходный контекст diff и посимвольная подсветка сохранены. Технические изменения определяются эвристически.</div></main></div><noscript><div class="noscript">JavaScript отключён. Diff доступен, но для навигации и фильтров нужен JavaScript.</div></noscript>`
@@ -205,36 +224,49 @@ const HTML_SCRIPT = `<script>
   var relative=function(value,root){var path=(value||'').replace(/\\/g,'/');if(root&&path.indexOf(root+'/')===0){return path.slice(root.length+1);}return path||'Файл без имени';};
   var changedLines=function(table){var lines=[];Array.prototype.forEach.call(table.querySelectorAll('.upd,.add,.del'),function(node){var copy=node.cloneNode(true);Array.prototype.forEach.call(copy.querySelectorAll('.lno'),function(n){n.remove();});copy.textContent.split(/\r?\n/).forEach(function(line){line=clean(line);if(line){lines.push(line);}});});return lines;};
   var getStatus=function(table){var cells=table.querySelectorAll('.ttd');var first=cells[0]?cells[0].textContent:'';var second=cells[1]?cells[1].textContent:'';var errors=table.querySelectorAll('.err');var messages=table.querySelectorAll('.msg');if(/File does not exist/i.test(first)){return 'added';}if(/File does not exist/i.test(second)){return 'deleted';}if(errors.length){return 'error';}if(messages.length&&/Files are the same/i.test(table.textContent)){return 'identical';}return 'modified';};
+  var extensionOf=function(path){var name=(path||'').split('/').pop(),dot=name.lastIndexOf('.');return dot>0?name.slice(dot):'';};
+  var withoutExtension=function(path){var ext=extensionOf(path);return ext?path.slice(0,-ext.length):path;};
+  var readMetrics=function(cell){if(!cell||cell.dataset.valid!=='true'){return {valid:false,size:0,lines:0,blocks:0,chars:0,modified:'',encoding:'—'};}return {valid:true,size:Number(cell.dataset.size||0),lines:Number(cell.dataset.lines||0),blocks:Number(cell.dataset.blocks||0),chars:Number(cell.dataset.chars||0),modified:cell.dataset.modified||'—',encoding:cell.dataset.encoding||'—'};};
+  var metricNumber=function(value){return Number(value||0).toLocaleString('ru-RU');};
+  var appendMetric=function(parent,text,className){var item=document.createElement('span');if(className){item.className=className;}item.textContent=text;parent.appendChild(item);return item;};
   tables.forEach(function(table,index){
     var headers=table.querySelectorAll('.hdr');var left=headers[0]?clean(headers[0].textContent):'';var right=headers[1]?clean(headers[1].textContent):left;
-    var leftPath=relative(left,leftRoot),rightPath=relative(right,rightRoot);var path=leftPath!=='Файл без имени'?leftPath:rightPath;
+    var leftPath=relative(left,leftRoot),rightPath=relative(right,rightRoot);var path=leftPath!=='Файл без имени'?leftPath:rightPath;var leftExt=extensionOf(leftPath),rightExt=extensionOf(rightPath);var extensionChanged=leftPath!=='Файл без имени'&&rightPath!=='Файл без имени'&&leftExt!==rightExt&&withoutExtension(leftPath)===withoutExtension(rightPath);var displayPath=extensionChanged?leftPath+' → '+rightPath:path;
     var status=getStatus(table),lines=changedLines(table);var technical=lines.length>0&&lines.every(function(line){return /Page generated automatically|\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u0430 \u0432 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435/i.test(line);});
+    var diffMeta=table.querySelector('.diff-meta'),metricCells=diffMeta?diffMeta.querySelectorAll('td'):[];var leftMetrics=readMetrics(metricCells[0]),rightMetrics=readMetrics(metricCells[1]);var addedLines=diffMeta?Number(diffMeta.dataset.addedLines||0):table.querySelectorAll('.add').length;var deletedLines=diffMeta?Number(diffMeta.dataset.deletedLines||0):table.querySelectorAll('.del').length;var changedChars=diffMeta?Number(diffMeta.dataset.changedChars||0):clean(Array.prototype.map.call(table.querySelectorAll('.chg'),function(node){return node.textContent;}).join('')).length;
     if(status==='added'||status==='deleted'){var contentCells=table.querySelectorAll('.ttd');var contentCell=contentCells[status==='added'?1:0];if(contentCell){Array.prototype.forEach.call(contentCell.querySelectorAll('.nop'),function(node){node.classList.remove('nop');node.classList.add(status==='added'?'add':'del');});}}
-    var normalized=path.replace(/\\/g,'/'),slash=normalized.lastIndexOf('/');var folder=slash<0?'Корень':normalized.slice(0,slash);
-    var added=table.querySelectorAll('.add').length,deleted=table.querySelectorAll('.del').length,updated=table.querySelectorAll('.upd').length,fragments=table.querySelectorAll('.chg').length;
-    var card=document.createElement('section');card.className='diff-card';card.id='file-'+index;card.dataset.path=path;card.dataset.folder=folder;card.dataset.status=status;card.dataset.technical=technical?'1':'0';card.dataset.added=String(added);card.dataset.deleted=String(deleted);card.dataset.updated=String(updated);card.dataset.fragments=String(fragments);card.dataset.search=(path+' '+table.textContent).toLocaleLowerCase();
+    var normalized=path.replace(/\\/g,'/'),slash=normalized.indexOf('/');var folder=slash<0?'Корень':normalized.slice(0,slash);
+    var added=table.querySelectorAll('.add').length,deleted=table.querySelectorAll('.del').length,updated=table.querySelectorAll('.upd').length,fragments=table.querySelectorAll('.chg').length;var sizeDelta=leftMetrics.valid&&rightMetrics.valid?rightMetrics.size-leftMetrics.size:0;
+    var card=document.createElement('section');card.className='diff-card';card.id='file-'+index;card.dataset.path=displayPath;card.dataset.folder=folder;card.dataset.status=status;card.dataset.technical=technical?'1':'0';card.dataset.extensionChanged=extensionChanged?'1':'0';card.dataset.added=String(added);card.dataset.deleted=String(deleted);card.dataset.updated=String(updated);card.dataset.fragments=String(fragments);card.dataset.addedLines=String(addedLines);card.dataset.deletedLines=String(deletedLines);card.dataset.changedChars=String(changedChars);card.dataset.leftSize=String(leftMetrics.size);card.dataset.rightSize=String(rightMetrics.size);card.dataset.sizeDelta=String(sizeDelta);card.dataset.leftEncoding=leftMetrics.encoding;card.dataset.rightEncoding=rightMetrics.encoding;card.dataset.leftLines=String(leftMetrics.lines);card.dataset.rightLines=String(rightMetrics.lines);card.dataset.leftBlocks=String(leftMetrics.blocks);card.dataset.rightBlocks=String(rightMetrics.blocks);card.dataset.leftChars=String(leftMetrics.chars);card.dataset.rightChars=String(rightMetrics.chars);card.dataset.search=(displayPath+' '+table.textContent).toLocaleLowerCase();
     var head=document.createElement('button');head.type='button';head.className='card-head';head.setAttribute('aria-expanded','true');head.innerHTML='<span class="card-chevron" aria-hidden="true">▾</span>';
-    var pathNode=document.createElement('span');pathNode.className='card-path';pathNode.textContent=path;head.appendChild(pathNode);
+    var pathNode=document.createElement('span');pathNode.className='card-path';pathNode.textContent=displayPath;head.appendChild(pathNode);
+    var summaryNode=document.createElement('span');summaryNode.className='change-summary';appendMetric(summaryNode,'+'+metricNumber(addedLines),'plus');appendMetric(summaryNode,'−'+metricNumber(deletedLines),'minus');appendMetric(summaryNode,'~'+metricNumber(changedChars)+' симв.');if(sizeDelta){appendMetric(summaryNode,'Δ '+(sizeDelta>0?'+':'')+metricNumber(sizeDelta)+' Б','size-delta '+(sizeDelta>0?'positive':'negative'));}head.appendChild(summaryNode);
+    if(extensionChanged){appendMetric(head,(leftExt||'без расш.')+' → '+(rightExt||'без расш.'),'rename-note');}
     var badge=document.createElement('span');badge.className='badge '+(technical?'technical':status);badge.textContent=technical?'Техническое':labels[status];head.appendChild(badge);
     head.addEventListener('click',function(){var collapsed=card.classList.toggle('collapsed');head.setAttribute('aria-expanded',collapsed?'false':'true');});
-    card.appendChild(head);card.appendChild(table);container.appendChild(card);cards.push(card);
-    var link=document.createElement('button');link.type='button';link.className='file-link';link.dataset.target=card.id;var dot=document.createElement('span');dot.className='file-dot '+status;dot.setAttribute('aria-hidden','true');var body=document.createElement('span');var name=document.createElement('span');name.className='file-name';name.textContent=path;var meta=document.createElement('small');meta.textContent=(technical?'Техническое':labels[status])+' · блоков: '+(added+deleted+updated);body.appendChild(name);body.appendChild(meta);link.appendChild(dot);link.appendChild(body);
+    var plural=function(value,one,few,many){var n=Math.abs(value)%100;var last=n%10;if(n>10&&n<20){return many;}if(last>1&&last<5){return few;}if(last===1){return one;}return many;};
+    var metricsRow=document.createElement('div');metricsRow.className='file-metrics';var htmlLike=/\.html?$/i.test(leftPath)||/\.html?$/i.test(rightPath);var addMetricSide=function(label,metrics,isRight){var side=document.createElement('div');side.className='file-metric-side';var sideTitle=document.createElement('strong');sideTitle.textContent=label;side.appendChild(sideTitle);if(!metrics.valid){appendMetric(side,'файл отсутствует');}else{appendMetric(side,'Размер: '+metricNumber(metrics.size)+' Б'+(isRight&&leftMetrics.valid&&sizeDelta?' ('+(sizeDelta>0?'+':'')+metricNumber(sizeDelta)+' Б)':''));appendMetric(side,'Дата: '+metrics.modified);appendMetric(side,'Кодировка: '+metrics.encoding);appendMetric(side,metricNumber(metrics.lines)+' '+plural(metrics.lines,'строка','строки','строк'));appendMetric(side,metricNumber(metrics.blocks)+' '+(htmlLike?plural(metrics.blocks,'блок','блока','блоков'):plural(metrics.blocks,'абзац','абзаца','абзацев')));appendMetric(side,metricNumber(metrics.chars)+' '+plural(metrics.chars,'символ','символа','символов'));}metricsRow.appendChild(side);};addMetricSide('Слева',leftMetrics,false);addMetricSide('Справа',rightMetrics,true);
+    card.appendChild(head);card.appendChild(metricsRow);card.appendChild(table);container.appendChild(card);cards.push(card);
+    var link=document.createElement('button');link.type='button';link.className='file-link';link.dataset.target=card.id;var dot=document.createElement('span');dot.className='file-dot '+status;dot.setAttribute('aria-hidden','true');var body=document.createElement('span');var name=document.createElement('span');name.className='file-name';name.textContent=displayPath;var meta=document.createElement('small');meta.textContent=(technical?'Техническое':labels[status])+' · +'+addedLines+' −'+deletedLines+' · ~'+changedChars+' симв.';body.appendChild(name);body.appendChild(meta);link.appendChild(dot);link.appendChild(body);
     link.addEventListener('click',function(){card.classList.remove('collapsed');head.setAttribute('aria-expanded','true');card.scrollIntoView({behavior:'smooth',block:'start'});setActive(card);});list.appendChild(link);
   });
   function setActive(card){Array.prototype.forEach.call(list.children,function(link){link.classList.toggle('active',link.dataset.target===card.id);});}
-  var folders=[];cards.forEach(function(card){if(folders.indexOf(card.dataset.folder)<0){folders.push(card.dataset.folder);}});folders.sort(function(a,b){return a.localeCompare(b);});var folderFilter=document.getElementById('folder-filter');folders.forEach(function(folder){var option=document.createElement('option');option.value=folder;option.textContent=folder;folderFilter.appendChild(option);});
+  var folderCounts={};cards.forEach(function(card){folderCounts[card.dataset.folder]=(folderCounts[card.dataset.folder]||0)+1;});var folders=Object.keys(folderCounts).sort(function(a,b){return a.localeCompare(b,'ru');});var folderFilter=document.getElementById('folder-filter');folders.forEach(function(folder){var option=document.createElement('option');option.value=folder;option.textContent=folder+' ('+folderCounts[folder]+')';folderFilter.appendChild(option);});
   var sum=function(key){return cards.reduce(function(total,card){return total+Number(card.dataset[key]||0);},0);};
-  document.getElementById('stat-total').textContent=String(cards.length);document.getElementById('stat-modified').textContent=String(cards.filter(function(card){return card.dataset.status==='modified';}).length);document.getElementById('stat-added').textContent=String(sum('added'));document.getElementById('stat-deleted').textContent=String(sum('deleted'));document.getElementById('stat-fragments').textContent=String(sum('fragments'));document.getElementById('sidebar-count').textContent=String(cards.length);
+  var reportSummary=document.getElementById('report-summary');var totalFiles=reportSummary?Number(reportSummary.dataset.totalFiles||0):cards.length;var changedFiles=cards.filter(function(card){return card.dataset.status!=='identical';}).length;
+  document.getElementById('stat-total').textContent=String(totalFiles);document.getElementById('stat-modified').textContent=String(changedFiles);document.getElementById('stat-added').textContent=String(sum('addedLines'));document.getElementById('stat-deleted').textContent=String(sum('deletedLines'));document.getElementById('stat-fragments').textContent=String(sum('changedChars'));document.getElementById('sidebar-count').textContent=String(cards.length);
   document.getElementById('source-title').textContent=(document.body.getAttribute('data-left')||'')+'  ↔  '+(document.body.getAttribute('data-right')||'');
-  var search=document.getElementById('search'),statusFilter=document.getElementById('status-filter'),visible=[],current=-1;
-  function applyFilters(){var query=clean(search.value).toLocaleLowerCase(),status=statusFilter.value,folder=folderFilter.value;visible=[];cards.forEach(function(card,index){var matchesQuery=!query||card.dataset.search.indexOf(query)>=0;var matchesFolder=folder==='all'||card.dataset.folder===folder;var matchesStatus=status==='all'||card.dataset.status===status||(status==='technical'&&card.dataset.technical==='1')||(status==='content'&&card.dataset.status==='modified'&&card.dataset.technical!=='1');var show=matchesQuery&&matchesFolder&&matchesStatus;card.hidden=!show;if(list.children[index]){list.children[index].hidden=!show;}if(show){visible.push(card);}});current=-1;document.getElementById('result-count').textContent='Показано '+visible.length+' из '+cards.length;document.getElementById('empty-state').style.display=visible.length?'none':'block';}
-  search.addEventListener('input',applyFilters);statusFilter.addEventListener('change',applyFilters);folderFilter.addEventListener('change',applyFilters);
+  var search=document.getElementById('search'),statusFilter=document.getElementById('status-filter'),clearFilters=document.getElementById('clear-filters'),visible=[],current=-1;
+  var statusCounts={all:cards.length,modified:0,added:0,deleted:0,content:0,technical:0,error:0,identical:0};cards.forEach(function(card){statusCounts[card.dataset.status]++;if(card.dataset.technical==='1'){statusCounts.technical++;}else if(card.dataset.status==='modified'){statusCounts.content++;}});Array.prototype.forEach.call(statusFilter.options,function(option){option.textContent+=' ('+(statusCounts[option.value]||0)+')';});folderFilter.options[0].textContent+=' ('+cards.length+')';
+  function applyFilters(){var query=clean(search.value).toLocaleLowerCase(),status=statusFilter.value,folder=folderFilter.value;visible=[];cards.forEach(function(card,index){var matchesQuery=!query||card.dataset.search.indexOf(query)>=0;var matchesFolder=folder==='all'||card.dataset.folder===folder;var matchesStatus=status==='all'||card.dataset.status===status||(status==='technical'&&card.dataset.technical==='1')||(status==='content'&&card.dataset.status==='modified'&&card.dataset.technical!=='1');var show=matchesQuery&&matchesFolder&&matchesStatus;card.hidden=!show;if(list.children[index]){list.children[index].hidden=!show;}if(show){visible.push(card);}});current=-1;clearFilters.hidden=!query&&status==='all'&&folder==='all';document.getElementById('result-count').textContent='Показано '+visible.length+' из '+cards.length;document.getElementById('empty-state').style.display=visible.length?'none':'block';}
+  function resetFilters(){search.value='';statusFilter.value='all';folderFilter.value='all';applyFilters();search.focus();}
+  search.addEventListener('input',applyFilters);statusFilter.addEventListener('change',applyFilters);folderFilter.addEventListener('change',applyFilters);clearFilters.addEventListener('click',resetFilters);
   function move(direction){if(!visible.length){return;}if(current>=0){visible[current].classList.remove('match');}current=(current+direction+visible.length)%visible.length;var card=visible[current];card.classList.remove('collapsed');card.querySelector('.card-head').setAttribute('aria-expanded','true');card.classList.add('match');card.scrollIntoView({behavior:'smooth',block:'start'});setActive(card);}
   document.getElementById('prev-match').addEventListener('click',function(){move(-1);});document.getElementById('next-match').addEventListener('click',function(){move(1);});
   var themeButton=document.getElementById('theme-toggle');themeButton.addEventListener('click',function(){document.body.classList.toggle('dark');themeButton.textContent=document.body.classList.contains('dark')?'Светлая тема':'Тёмная тема';});
   var collapseButton=document.getElementById('collapse-all'),allCollapsed=false;collapseButton.addEventListener('click',function(){allCollapsed=!allCollapsed;cards.forEach(function(card){card.classList.toggle('collapsed',allCollapsed);card.querySelector('.card-head').setAttribute('aria-expanded',allCollapsed?'false':'true');});collapseButton.textContent=allCollapsed?'Развернуть всё':'Свернуть всё';});
-  document.getElementById('export-csv').addEventListener('click',function(){var rows=[['Файл','Каталог','Статус','Только техническое','Добавлено блоков','Удалено блоков','Изменено блоков','Изменено фрагментов']];cards.forEach(function(card){rows.push([card.dataset.path,card.dataset.folder,card.dataset.status,card.dataset.technical==='1'?'да':'нет',card.dataset.added,card.dataset.deleted,card.dataset.updated,card.dataset.fragments]);});var csv='\ufeff'+rows.map(function(row){return row.map(function(value){return '"'+String(value).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='godiff-report.csv';anchor.click();setTimeout(function(){URL.revokeObjectURL(url);},0);});
-  document.addEventListener('keydown',function(event){if(event.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){event.preventDefault();search.focus();}if(event.altKey&&event.key==='ArrowDown'){event.preventDefault();move(1);}if(event.altKey&&event.key==='ArrowUp'){event.preventDefault();move(-1);}});
+  document.getElementById('export-csv').addEventListener('click',function(){var rows=[['Файл','Каталог','Статус','Смена расширения','Только техническое','Строк +','Строк -','Изменено символов','Размер слева','Размер справа','Изменение размера','Кодировка слева','Кодировка справа','Строк слева','Строк справа','Блоков слева','Блоков справа','Символов слева','Символов справа']];cards.forEach(function(card){rows.push([card.dataset.path,card.dataset.folder,card.dataset.status,card.dataset.extensionChanged==='1'?'да':'нет',card.dataset.technical==='1'?'да':'нет',card.dataset.addedLines,card.dataset.deletedLines,card.dataset.changedChars,card.dataset.leftSize,card.dataset.rightSize,card.dataset.sizeDelta,card.dataset.leftEncoding,card.dataset.rightEncoding,card.dataset.leftLines,card.dataset.rightLines,card.dataset.leftBlocks,card.dataset.rightBlocks,card.dataset.leftChars,card.dataset.rightChars]);});var csv='\ufeff'+rows.map(function(row){return row.map(function(value){return '"'+String(value).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='godiff-report.csv';anchor.click();setTimeout(function(){URL.revokeObjectURL(url);},0);});
+  document.addEventListener('keydown',function(event){if(event.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){event.preventDefault();search.focus();}if(event.key==='Escape'&&!clearFilters.hidden){event.preventDefault();resetFilters();}if(event.altKey&&event.key==='ArrowDown'){event.preventDefault();move(1);}if(event.altKey&&event.key==='ArrowUp'){event.preventDefault();move(-1);}});
   applyFilters();
 })();
 </script>`
@@ -279,6 +311,8 @@ var (
 	out_lock sync.Mutex
 )
 
+var report_total_files int
+
 // html entity strings
 var (
 	html_entity_amp    = html.EscapeString("&")
@@ -296,6 +330,9 @@ var (
 )
 
 var blank_line = make([]byte, 0)
+
+var regexp_html_block = regexp.MustCompile(`(?i)<[[:space:]]*(address|article|aside|blockquote|details|dialog|div|dl|dt|dd|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|thead|tfoot|tr|ul)([[:space:]]|/?>)`)
+var regexp_html_charset = regexp.MustCompile(`(?i)charset[[:space:]]*=[[:space:]]*["']?[[:space:]]*([a-z0-9._-]+)`)
 
 func version() {
 	fmt.Printf("godiff. Version %s\n", VERSION)
@@ -422,6 +459,7 @@ func main() {
 
 	switch {
 	case !finfo1.IsDir() && !finfo2.IsDir():
+		report_total_files = 1
 		diff_file(file1, file2, finfo1, finfo2)
 
 	case finfo1.IsDir() && finfo2.IsDir():
@@ -431,6 +469,7 @@ func main() {
 	}
 
 	if !flag_output_as_text {
+		fmt.Fprintf(out, "<div id=\"report-summary\" data-total-files=\"%d\" hidden></div>\n", report_total_files)
 		out.WriteString(HTML_APP_CLOSE)
 		fmt.Fprintf(out, "<footer class=\"footnote\">Сформировано: %s", time.Now().Format(time.RFC1123))
 		out.WriteString(HTML_LEGEND)
@@ -661,7 +700,7 @@ func html_preview_file(buf *bytes.Buffer, lines [][]byte) {
 	buf.WriteString("</span></span>")
 }
 
-func output_diff_message_content(filename1, filename2 string, info1, info2 os.FileInfo, msg1, msg2 string, data1, data2 [][]byte, is_error bool) {
+func output_diff_message_content(filename1, filename2 string, info1, info2 os.FileInfo, msg1, msg2 string, data1, data2 [][]byte, metrics1, metrics2 FileMetrics, is_error bool) {
 
 	if flag_output_as_text {
 		out_acquire_lock()
@@ -680,6 +719,13 @@ func output_diff_message_content(filename1, filename2 string, info1, info2 os.Fi
 			name2:     filename2,
 			fileinfo1: info1,
 			fileinfo2: info2,
+			metrics1:  metrics1,
+			metrics2:  metrics2,
+		}
+		if msg1 == MSG_FILE_NOT_EXISTS {
+			outfmt.summary.added_lines = len(data2)
+		} else if msg2 == MSG_FILE_NOT_EXISTS {
+			outfmt.summary.deleted_lines = len(data1)
 		}
 
 		var span string
@@ -714,13 +760,18 @@ func output_diff_message_content(filename1, filename2 string, info1, info2 os.Fi
 		out.Write(outfmt.buf2.Bytes())
 
 		out.WriteString("</td></tr>\n")
+		write_html_report_meta(&outfmt)
 		out.WriteString("</table><br>\n")
 		out_release_lock()
 	}
 }
 
 func output_diff_message(filename1, filename2 string, info1, info2 os.FileInfo, msg1, msg2 string, is_error bool) {
-	output_diff_message_content(filename1, filename2, info1, info2, msg1, msg2, nil, nil, is_error)
+	output_diff_message_content(filename1, filename2, info1, info2, msg1, msg2, nil, nil, FileMetrics{}, FileMetrics{}, is_error)
+}
+
+func output_diff_message_metrics(filename1, filename2 string, info1, info2 os.FileInfo, msg1, msg2 string, metrics1, metrics2 FileMetrics, is_error bool) {
+	output_diff_message_content(filename1, filename2, info1, info2, msg1, msg2, nil, nil, metrics1, metrics2, is_error)
 }
 
 func write_html_lineno(buf *bytes.Buffer, lineno, width int) {
@@ -853,9 +904,53 @@ func html_file_table_unified(outfmt *OutputFormat) {
 	}
 }
 
+func collect_diff_summary(outfmt *OutputFormat, ops []DiffOp, file1, file2 [][]byte) {
+	for _, op := range ops {
+		switch op.op {
+		case DIFF_OP_INSERT:
+			outfmt.summary.added_lines += op.end2 - op.start2
+		case DIFF_OP_REMOVE:
+			outfmt.summary.deleted_lines += op.end1 - op.start1
+		case DIFF_OP_MODIFY:
+			outfmt.summary.deleted_lines += op.end1 - op.start1
+			outfmt.summary.added_lines += op.end2 - op.start2
+			pairs := min_int(op.end1-op.start1, op.end2-op.start2)
+			for i := 0; i < pairs; i++ {
+				_, cmp1 := split_runes(file1[op.start1+i])
+				_, cmp2 := split_runes(file2[op.start2+i])
+				change1, change2 := do_diff(cmp1, cmp2)
+				for _, changed := range change1 {
+					if changed {
+						outfmt.summary.changed_chars++
+					}
+				}
+				for _, changed := range change2 {
+					if changed {
+						outfmt.summary.changed_chars++
+					}
+				}
+			}
+		}
+	}
+}
+
+func write_html_metrics_cell(metrics FileMetrics) {
+	fmt.Fprintf(out, "<td data-valid=\"%t\" data-size=\"%d\" data-lines=\"%d\" data-blocks=\"%d\" data-chars=\"%d\" data-modified=\"%s\" data-encoding=\"%s\"></td>",
+		metrics.valid, metrics.size, metrics.lines, metrics.blocks, metrics.chars, html.EscapeString(metrics.modified), html.EscapeString(metrics.encoding))
+}
+
+func write_html_report_meta(outfmt *OutputFormat) {
+	fmt.Fprintf(out, "<tr class=\"diff-meta\" hidden data-added-lines=\"%d\" data-deleted-lines=\"%d\" data-changed-chars=\"%d\">",
+		outfmt.summary.added_lines, outfmt.summary.deleted_lines, outfmt.summary.changed_chars)
+	write_html_metrics_cell(outfmt.metrics1)
+	write_html_metrics_cell(outfmt.metrics2)
+	out.WriteString("</tr>\n")
+}
+
 func (chg *DiffChangerUnifiedHtml) diff_lines(ops []DiffOp) {
 
 	html_file_table_unified(chg.OutputFormat)
+	collect_diff_summary(chg.OutputFormat, ops, chg.file1, chg.file2)
 	chg.buf1.Reset()
 
 	for _, v := range ops {
@@ -883,6 +978,7 @@ func (chg *DiffChangerUnifiedHtml) diff_lines(ops []DiffOp) {
 func (chg *DiffChangerHtml) diff_lines(ops []DiffOp) {
 
 	html_file_table(chg.OutputFormat)
+	collect_diff_summary(chg.OutputFormat, ops, chg.file1, chg.file2)
 
 	chg.buf1.Reset()
 	chg.buf2.Reset()
@@ -1805,12 +1901,81 @@ func (file *Filedata) split_lines() [][]byte {
 	return lines
 }
 
+func detect_encoding(data []byte) string {
+	switch {
+	case bytes.HasPrefix(data, []byte{0x00, 0x00, 0xfe, 0xff}):
+		return "UTF-32 BE"
+	case bytes.HasPrefix(data, []byte{0xff, 0xfe, 0x00, 0x00}):
+		return "UTF-32 LE"
+	case bytes.HasPrefix(data, []byte{0xef, 0xbb, 0xbf}):
+		return "UTF-8 BOM"
+	case bytes.HasPrefix(data, []byte{0xfe, 0xff}):
+		return "UTF-16 BE"
+	case bytes.HasPrefix(data, []byte{0xff, 0xfe}):
+		return "UTF-16 LE"
+	}
+
+	sample := data
+	if len(sample) > 8192 {
+		sample = sample[:8192]
+	}
+	if match := regexp_html_charset.FindSubmatch(sample); len(match) > 1 {
+		return strings.ToUpper(string(match[1]))
+	}
+	if utf8.Valid(data) {
+		return "UTF-8"
+	}
+	if bytes.IndexByte(sample, 0) >= 0 {
+		return "binary"
+	}
+	return "unknown"
+}
+
+func count_text_blocks(lines [][]byte) int {
+	blocks, in_block := 0, false
+	for _, line := range lines {
+		nonempty := len(bytes.TrimSpace(line)) > 0
+		if nonempty && !in_block {
+			blocks++
+		}
+		in_block = nonempty
+	}
+	return blocks
+}
+
+func measure_file(data []byte, lines [][]byte, info os.FileInfo, name string) FileMetrics {
+	metrics := FileMetrics{valid: info != nil, encoding: detect_encoding(data), lines: len(lines)}
+	if info != nil {
+		metrics.size = info.Size()
+		metrics.modified = info.ModTime().Format("2006-01-02 15:04:05 -07:00")
+	}
+	for _, r := range string(data) {
+		if r != '\r' && r != '\n' {
+			metrics.chars++
+		}
+	}
+	lower_name := strings.ToLower(name)
+	if strings.HasSuffix(lower_name, ".html") || strings.HasSuffix(lower_name, ".htm") {
+		metrics.blocks = len(regexp_html_block.FindAll(data, -1))
+	} else {
+		metrics.blocks = count_text_blocks(lines)
+	}
+	return metrics
+}
+
 // for sorting os.FileInfo by name
 type FileInfoList []os.FileInfo
 
 func (s FileInfoList) Len() int           { return len(s) }
 func (s FileInfoList) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s FileInfoList) Less(i, j int) bool { return s[i].Name() < s[j].Name() }
+
+func filename_stem(name string) string {
+	if dot := strings.LastIndex(name, "."); dot > 0 {
+		return name[:dot]
+	}
+	return name
+}
 
 // get a list of sorted directory entries
 func read_sorted_dir(dirname string) ([]os.FileInfo, error) {
@@ -1885,7 +2050,8 @@ func diff_dirs(dirname1, dirname2 string, finfo1, finfo2 os.FileInfo) {
 				}
 			}
 
-			if name1 == name2 {
+			same_stem := !dir_mode && i1 < len(dir1) && i2 < len(dir2) && !dir1[i1].IsDir() && !dir2[i2].IsDir() && name1 != name2 && filename_stem(name1) == filename_stem(name2)
+			if name1 == name2 || same_stem {
 				if dir1[i1].IsDir() != dir2[i2].IsDir() {
 					if !dir_mode {
 						if dir1[i1].IsDir() {
@@ -1899,6 +2065,7 @@ func diff_dirs(dirname1, dirname2 string, finfo1, finfo2 os.FileInfo) {
 					diff_dirs(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name2, dir1[i1], dir2[i2])
 				} else {
 					// compare files
+					report_total_files++
 					if flag_max_goroutines > 1 {
 						queue_diff_file(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name2, dir1[i1], dir2[i2])
 					} else {
@@ -1910,12 +2077,16 @@ func diff_dirs(dirname1, dirname2 string, finfo1, finfo2 os.FileInfo) {
 				if dir_mode {
 					output_diff_message(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name1, dir1[i1], nil, "", MSG_DIR_NOT_EXISTS, true)
 				} else {
+					report_total_files++
 					if flag_suppress_missing_file {
 						output_diff_message(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name1, dir1[i1], nil, "", MSG_FILE_NOT_EXISTS, true)
 					} else {
 						fdata := open_file(dirname1+PATH_SEPARATOR+name1, dir1[i1])
+						raw_data := fdata.data
 						fdata.check_binary()
-						output_diff_message_content(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name1, dir1[i1], nil, fdata.errormsg, MSG_FILE_NOT_EXISTS, fdata.split_lines(), nil, true)
+						lines := fdata.split_lines()
+						metrics := measure_file(raw_data, lines, dir1[i1], name1)
+						output_diff_message_content(dirname1+PATH_SEPARATOR+name1, dirname2+PATH_SEPARATOR+name1, dir1[i1], nil, fdata.errormsg, MSG_FILE_NOT_EXISTS, lines, nil, metrics, FileMetrics{}, true)
 						fdata.close_file()
 					}
 				}
@@ -1924,12 +2095,16 @@ func diff_dirs(dirname1, dirname2 string, finfo1, finfo2 os.FileInfo) {
 				if dir_mode {
 					output_diff_message(dirname1+PATH_SEPARATOR+name2, dirname2+PATH_SEPARATOR+name2, nil, dir2[i2], MSG_DIR_NOT_EXISTS, "", true)
 				} else {
+					report_total_files++
 					if flag_suppress_missing_file {
 						output_diff_message(dirname1+PATH_SEPARATOR+name2, dirname2+PATH_SEPARATOR+name2, nil, dir2[i2], MSG_FILE_NOT_EXISTS, "", true)
 					} else {
 						fdata := open_file(dirname2+PATH_SEPARATOR+name2, dir2[i2])
+						raw_data := fdata.data
 						fdata.check_binary()
-						output_diff_message_content(dirname1+PATH_SEPARATOR+name2, dirname2+PATH_SEPARATOR+name2, nil, dir2[i2], MSG_FILE_NOT_EXISTS, fdata.errormsg, nil, fdata.split_lines(), true)
+						lines := fdata.split_lines()
+						metrics := measure_file(raw_data, lines, dir2[i2], name2)
+						output_diff_message_content(dirname1+PATH_SEPARATOR+name2, dirname2+PATH_SEPARATOR+name2, nil, dir2[i2], MSG_FILE_NOT_EXISTS, fdata.errormsg, nil, lines, FileMetrics{}, metrics, true)
 						fdata.close_file()
 					}
 				}
@@ -1956,14 +2131,25 @@ func diff_file(filename1, filename2 string, finfo1, finfo2 os.FileInfo) {
 		return
 	} else if bytes.Equal(file1.data, file2.data) {
 		// files are equal
-		if flag_show_identical_files {
-			output_diff_message(filename1, filename2, finfo1, finfo2, MSG_FILE_IDENTICAL, MSG_FILE_IDENTICAL, false)
+		extension_changed := finfo1.Name() != finfo2.Name() && filename_stem(finfo1.Name()) == filename_stem(finfo2.Name())
+		if flag_show_identical_files || extension_changed {
+			lines1 := file1.split_lines()
+			lines2 := file2.split_lines()
+			metrics1 := measure_file(file1.data, lines1, finfo1, filename1)
+			metrics2 := measure_file(file2.data, lines2, finfo2, filename2)
+			message := MSG_FILE_IDENTICAL
+			if extension_changed {
+				message = MSG_EXTENSION_CHANGED
+			}
+			output_diff_message_metrics(filename1, filename2, finfo1, finfo2, message, message, metrics1, metrics2, false)
 		}
 		return
 	}
 
 	lines1 := file1.split_lines()
 	lines2 := file2.split_lines()
+	metrics1 := measure_file(file1.data, lines1, finfo1, filename1)
+	metrics2 := measure_file(file2.data, lines2, finfo2, filename2)
 
 	if file1.is_binary || file2.is_binary {
 
@@ -1982,7 +2168,7 @@ func diff_file(filename1, filename2 string, finfo1, finfo2 os.FileInfo) {
 		}
 
 		if msg1 != "" || msg2 != "" {
-			output_diff_message(filename1, filename2, finfo1, finfo2, msg1, msg2, true)
+			output_diff_message_metrics(filename1, filename2, finfo1, finfo2, msg1, msg2, metrics1, metrics2, true)
 		}
 	} else {
 		// Compute equiv ids for each line.
@@ -2008,6 +2194,8 @@ func diff_file(filename1, filename2 string, finfo1, finfo2 os.FileInfo) {
 				name2:        filename2,
 				fileinfo1:    finfo1,
 				fileinfo2:    finfo2,
+				metrics1:     metrics1,
+				metrics2:     metrics2,
 				lineno_width: len(fmt.Sprintf("%d", max_int(len(lines1), len(lines2)))),
 			},
 			file1: lines1,
@@ -2036,6 +2224,7 @@ func diff_file(filename1, filename2 string, finfo1, finfo2 os.FileInfo) {
 
 		if chg_data.header_printed {
 			if !flag_output_as_text {
+				write_html_report_meta(chg_data.OutputFormat)
 				out.WriteString("</table><br>\n")
 			}
 			chg_data.header_printed = false

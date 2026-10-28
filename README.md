@@ -22,6 +22,9 @@ See `godiff -h` for all the available command line options
 * Options for ignore case, white spaces compare, blank lines etc.
 * Interactive directory report with file navigation, summary statistics, search,
   status and directory filters.
+* Per-file statistics for size, modification time, encoding, lines, HTML blocks
+  (or text paragraphs), characters, and GitHub-style added/deleted line counts.
+* Detects a file extension change as a rename when the base name is unchanged.
 * Collapsible file diffs, light/dark themes and CSV summary export.
 * The HTML report is self-contained and works offline.
 
